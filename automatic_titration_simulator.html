@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automatic Titration Simulator</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --drip-distance: 280px;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+        }
+
+        .lab-bench {
+            position: relative;
+            height: 650px; /* Compact height */
+            display: flex;
+            justify-content: center;
+        }
+
+        /* --- Burette Assembly --- */
+        .burette-assembly {
+            position: absolute;
+            top: 0px;
+            width: 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .burette {
+            width: 30px;
+            height: 250px; /* Compact burette */
+            background-color: #f0f8ff;
+            border-left: 2px solid #555;
+            border-right: 2px solid #555;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        #burette-liquid {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #a7d8fA;
+            transition: height 0.05s linear;
+            height: 100%; /* Starts full */
+        }
+
+        .burette-ticks {
+            position: absolute;
+            top: 0;
+            left: -10px;
+            width: 100%;
+            height: 100%;
+            font-size: 10px;
+            color: #333;
+        }
+
+        .tick {
+            position: absolute;
+            right: 0px;
+            width: 8px;
+            height: 1px;
+            background-color: #333;
+        }
+        .tick-label {
+            position: absolute;
+            right: 15px;
+            transform: translateY(-50%);
+        }
+
+        .stopcock {
+            width: 70px;
+            height: 20px;
+            background-color: #ddd;
+            border: 2px solid #555;
+            border-radius: 4px;
+            position: relative;
+            margin-top: -2px;
+            z-index: 10;
+        }
+
+        #stopcock-handle {
+            width: 10px;
+            height: 36px;
+            background-color: #bbb;
+            border: 2px solid #555;
+            border-radius: 3px;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) rotate(90deg); /* Starts closed */
+            transition: transform 0.3s ease;
+            transform-origin: center center;
+        }
+        
+        .titrating #stopcock-handle {
+            transform: translate(-50%, -50%) rotate(0deg); /* Open */
+        }
+
+        .burette-tip {
+            width: 4px;
+            height: 40px;
+            background-color: #f0f8ff;
+            border-left: 2px solid #555;
+            border-right: 2px solid #555;
+            border-bottom: 2px solid #555;
+            position: relative;
+            clip-path: polygon(0% 0%, 100% 0%, 70% 100%, 30% 100%);
+        }
+
+        #drip {
+            width: 8px;
+            height: 8px;
+            background-color: #a7d8fA;
+            border-radius: 50%;
+            position: absolute;
+            top: 310px; /* 250(burette) + 20(stopcock) + 40(tip) */
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+        }
+
+        .titrating #drip.dripping-fast {
+            animation: drip-fast 0.3s linear infinite;
+        }
+        
+        .titrating #drip.dripping-slow {
+            animation: drip-slow 1s linear infinite;
+        }
+        
+        @keyframes drip-fast {
+            0% { transform: translate(-50%, 0); opacity: 1; }
+            100% { transform: translate(-50%, var(--drip-distance)); opacity: 0; }
+        }
+        
+        @keyframes drip-slow {
+            0% { transform: translate(-50%, 0); opacity: 1; }
+            50% { transform: translate(-50%, var(--drip-distance)); opacity: 0; }
+            100% { transform: translate(-50%, var(--drip-distance)); opacity: 0; }
+        }
+
+        /* --- Flask Assembly --- */
+        .flask-assembly {
+            position: absolute;
+            bottom: -50px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 5;
+        }
+
+        #flask-svg {
+            width: 180px;
+            height: 300px;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+        }
+
+        #flask-liquid {
+            transition: fill 0.5s ease;
+        }
+
+        .label {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.7);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+            pointer-events: none;
+        }
+        #label-burette {
+            top: 20px;
+            left: 50%;
+            transform: translateX(60px);
+        }
+        #label-edta {
+            top: 150px;
+            left: 50%;
+            transform: translateX(60px);
+        }
+        #label-flask {
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(90px);
+        }
+        #label-water {
+            bottom: 160px; /* Positioned to point at the initial water */
+            left: 50%;
+            transform: translateX(90px);
+        }
+
+        #burette-reading-box {
+            position: absolute;
+            top: 320px; /* Aligned with stopcock */
+            left: 50%;
+            transform: translateX(60px);
+            z-index: 20;
+        }
+        
+        /* Slider Track */
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 8px;
+            background-color: #e5e7eb;
+            border-radius: 9999px;
+        }
+        input[type="range"]::-moz-range-track {
+            height: 8px;
+            background-color: #e5e7eb;
+            border-radius: 9999px;
+        }
+
+        /* Slider Thumb */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #2563eb;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #2563eb;
+            border-radius: 50%;
+            cursor: pointer;
+            border: 0;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 p-4">
+
+    <!-- Main Page Container -->
+    <div class="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
+        
+        <div class="bg-blue-600 p-6 text-white">
+            <h1 class="text-3xl font-bold text-center">Automatic Titration Simulator</h1>
+            <p class="text-center text-blue-100 mt-2">Formula: Hardness = (V₂ / V₁) × 1000</p>
+        </div>
+
+        
+        <!-- Top Section: Simulation + Controls -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-0">
+
+            <!-- Left: Lab Bench -->
+            <div id="lab-bench-container" class="lg:col-span-2 p-6 bg-gray-50 border-r border-gray-200">
+                <h2 id="current-titration-label" class="text-2xl font-semibold mb-4 text-center text-blue-800">
+                    Waiting to start...
+                </h2>
+                
+                <div class="lab-bench">
+                    
+                    
+                    <div class="burette-assembly">
+                        <div class="relative w-full flex flex-col items-center">
+                            <div class="burette">
+                                <div id="burette-liquid"></div>
+                                <div class="burette-ticks">
+                                    
+                                </div>
+                            </div>
+                            <div class="stopcock">
+                                <div id="stopcock-handle"></div>
+                            </div>
+                            <div class="burette-tip">
+                            </div>
+                            <div id="drip"></div>
+                        </div>
+                    </div>
+
+                    
+                    <div id="burette-reading-box" class="text-center p-3 bg-white rounded-lg shadow">
+                        <span class="text-gray-600 text-sm">Volume Added:</span>
+                        <span id="burette-reading" class="text-2xl font-bold text-blue-700 block">0.00 mL</span>
+                    </div>
+                    
+                    
+                    <div class="flask-assembly">
+                        
+                        <svg id="flask-svg" viewbox="0 0 200 300"> 
+                            <defs>
+                                <clipPath id="flask-clip">
+                                    <path d="M 60 40 L 60 70 L 20 260 Q 100 290 180 260 L 140 70 L 140 40 Z" />
+                                </clipPath>
+                            </defs>
+                            
+                            <rect id="flask-liquid" x="0" y="200" width="200" height="100" fill="transparent" clip-path="url(#flask-clip)" />
+
+                            <path d="M 70 0 L 70 40 L 60 40 L 60 70 L 20 260 Q 100 290 180 260 L 140 70 L 140 40 L 130 40 L 130 0 Z" 
+                                  stroke="#333" stroke-width="3" fill="rgba(230, 245, 255, 0.3)" />
+                            
+                            <line id="liquid-surface" x1="28" y1="200" x2="172" y2="200" stroke="#555" stroke-width="1.5" style="visibility: hidden;" />
+                        </svg>
+                        
+                        <div class="mt-4 text-center p-3 bg-white rounded-lg shadow">
+                            <span class="text-gray-600 text-sm">Flask Color:</span>
+                            <span id="flask-color" class="text-xl font-bold block" style="color: #888;">N/A</span>
+                        </div>
+                    </div>
+
+                    
+                    <div id="label-burette" class="label">Burette</div>
+                    <div id="label-edta" class="label">EDTA Solution</div>
+                    <div id="label-flask" class="label">Conical Flask</div>
+                    <div id="label-water" class="label">Water Sample</div>
+
+                </div>
+            </div>
+
+            <!-- Right: Setup, Controls & Results Panel -->
+            <div class="lg:col-span-1 p-6 bg-gray-100">
+                <h2 class="text-2xl font-semibold mb-4 text-blue-800">Setup & Procedure</h2>
+
+                <!-- Sliders moved to top of this column -->
+                <div class="grid grid-cols-1 gap-4 mb-4">
+                    <!-- EDTA Concentration Card -->
+                    <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                        <h3 class="text-xl font-semibold mb-4 text-gray-700">A. EDTA Concentration</h3>
+                        <label for="edta-molarity-slider" class="block text-sm font-medium text-gray-600">Molarity (M): 
+                            <span id="edta-molarity-value" class="font-bold text-blue-700">0.010</span>
+                        </label>
+                        <input type="range" id="edta-molarity-slider" min="0.005" max="0.02" value="0.01" step="0.001" class="w-full appearance-none cursor-pointer disabled:opacity-50">
+                        <p id="edta-molarity-message" class="text-xs text-gray-500 mt-2" style="color: green;">
+                            Standard concentration.
+                        </p>
+                    </div>
+                    
+                    <!-- Buffer pH Card -->
+                    <div class="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+                        <h3 class="text-xl font-semibold mb-4 text-gray-700">B. Buffer pH</h3>
+                        <label for="ph-slider" class="block text-sm font-medium text-gray-600">Buffer pH: <span id="ph-value" class="font-bold text-blue-700">10.0</span></label>
+                        <input type="range" id="ph-slider" min="5" max="13" value="10" step="0.5" class="w-full appearance-none cursor-pointer disabled:opacity-50">
+                        <p id="ph-message" class="text-xs text-gray-500 mt-2" style="color: green;">pH is in the ideal range.</p>
+                    </div>
+                </div>
+
+                <!-- Message bar -->
+                <div id="results-message" class="p-4 rounded-md text-center hidden mb-4">
+                </div>
+                
+                <!-- Procedure & Results Card -->
+                <div class="bg-white p-6 rounded-xl shadow-lg">
+                    <div class="space-y-4">
+                        
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-700">Step 1: Run Known Sample</h4>
+                            <button id="start-std-btn" class="mt-3 w-full text-lg text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:from-gray-400 disabled:to-gray-500 disabled:scale-100 disabled:shadow-md disabled:cursor-not-allowed disabled:brightness-75 bg-gradient-to-r from-green-500 to-green-600 focus:ring-green-400">
+                                Run Titration 1 (Known Sample)
+                            </button>
+                            <div class="flex justify-between items-center mt-3">
+                                <span class="font-medium text-gray-600">V₁ (Known EDTA):</span>
+                                <span id="result-v1" class="text-xl font-bold text-gray-800">---</span>
+                            </div>
+                        </div>
+                        
+                        <hr>
+
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-700">Step 2: Run Unknown Sample</h4>
+                            <button id="start-unk-btn" class="mt-3 w-full text-lg text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:from-gray-400 disabled:to-gray-500 disabled:scale-100 disabled:shadow-md disabled:cursor-not-allowed disabled:brightness-75 bg-gradient-to-r from-indigo-500 to-indigo-600 focus:ring-indigo-400">
+                                Run Titration 2 (Unknown)
+                            </button>
+                            <div class="flex justify-between items-center mt-3">
+                                <span class="font-medium text-gray-600">V₂ (Unknown EDTA):</span>
+                                <span id="result-v2" class="text-xl font-bold text-gray-800">---</span>
+                            </div>
+                        </div>
+
+                        <hr>
+
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-700">Step 3: Final Calculation</h4>
+                            <div class="space-y-3 mt-3">
+                                <div class="flex justify-between items-center pt-3 border-t-2 border-blue-300">
+                                    <span class="font-bold text-blue-700 text-lg">Total Hardness:</span>
+                                    <span id="result-hardness" class="text-2xl font-bold text-blue-700">---</span>
+                                </div>
+                                <div class="flex justify-between items-center pt-2 border-t border-gray-200">
+                                    <span class="font-bold text-gray-700 text-lg">Classification:</span>
+                                    <span id="result-classification" class="text-2xl font-bold text-gray-900">---</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr>
+                        
+                        <div>
+                            <h4 class="text-lg font-semibold text-gray-700">Step 4: Reset</h4>
+                            <button id="reset-btn" class="mt-3 w-full text-lg text-white font-bold py-3 px-4 rounded-lg shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:from-gray-400 disabled:to-gray-500 disabled:scale-100 disabled:shadow-md disabled:cursor-not-allowed disabled:brightness-75 bg-gradient-to-r from-red-500 to-red-600 focus:ring-red-400">
+                                Reset All
+                            </button>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div> <!-- End of Top Section Grid -->
+
+        <!-- Bottom Section: Explanations -->
+        <div class="p-6 lg:p-10 bg-white border-t border-gray-200">
+            <h2 class="text-2xl font-semibold mb-4 text-blue-800">Experiment Details & Tutorial</h2>
+            
+            <!-- NEW GUIDED TUTORIAL -->
+            <div class="mb-6 bg-yellow-50 border border-yellow-300 rounded-xl p-6">
+                <h3 class="text-xl font-semibold text-yellow-800 mb-3">Things to Try (A Guided Tour)</h3>
+                <ol class="list-decimal list-inside space-y-3 text-gray-700">
+                    <li>
+                        <strong>The Perfect Run:</strong> Keep sliders at their default (Molarity: 0.010 M, pH: 10.0).
+                        <ul class="list-disc list-inside ml-4 text-sm">
+                            <li>Run Step 1. You should get V₁ = 7.00 mL.</li>
+                            <li>Run Step 2. You should get V₂ = 1.00 mL.</li>
+                            <li><strong>Result: 142.9 ppm (Hard)</strong> - This is the correct answer.</li>
+                        </ul>
+                    </li>
+                    <li>
+                        <strong>Major Error (Wrong pH):</strong> Set <strong>pH to 7.0</strong>.
+                        <ul class="list-disc list-inside ml-4 text-sm">
+                            <li>Run Step 1. The titration will fail because the indicator doesn't work at this pH.</li>
+                            <li>This shows why the pH 10 buffer is essential.</li>
+                        </ul>
+                    </li>
+                    <li>
+                        <strong>Subtle Error (Inaccurate pH):</strong> Set <strong>pH to 8.5</strong>.
+                        <ul class="list-disc list-inside ml-4 text-sm">
+                            <li>Run Step 1 (V₁ = 5.95 mL) -> Run Step 2 (V₂ = 0.85 mL).</li>
+                            <li><strong>Result: 142.9 ppm.</strong> The error cancels out!</li>
+                            <li>Now try: pH 10.0 for Step 1 (V₁ = 7.00 mL) -> pH 8.5 for Step 2 (V₂ = 0.85 mL).</li>
+                            <li><strong>Result: 121.4 ppm.</strong> This is how a single mistake gives a wrong answer.</li>
+                        </ul>
+                    </li>
+                     <li>
+                        <strong>Concentration Change:</strong> Set <strong>Molarity to 0.020 M</strong> (double strength) and <strong>pH to 10.0</strong>.
+                        <ul class="list-disc list-inside ml-4 text-sm">
+                            <li>Run Step 1 (V₁ = 3.50 mL) -> Run Step 2 (V₂ = 0.50 mL).</li>
+                            <li>The volumes are *half* the size, but the ratio (0.50 / 3.50) is the same.</li>
+                            <li><strong>Result: 142.9 ppm.</strong> This proves the formula works even with non-standard solutions!</li>
+                        </ul>
+                    </li>
+                </ol>
+            </div>
+            
+            <!-- Explanations for sliders -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <h3 class="font-semibold text-gray-700">About EDTA Concentration</h3>
+                    <p class="text-xs text-gray-600 mt-2 italic">
+                        Adjust the concentration of the EDTA titrant. Notice how this changes the *volume* required (a stronger solution needs less volume), but it does not change the final *ppm calculation*. This is because our formula is based on the ratio of V₁ to V₂.
+                    </p>
+                </div>
+                
+                <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <h3 class="font-semibold text-gray-700">About Buffer pH</h3>
+                    <p class="text-xs text-gray-600 mt-2 italic">
+                        The pH must be ~10 for the EBT indicator to work and for the EDTA to bind correctly. Try setting it to 7.0 (too low) or 12.0 (too high) to see the titration fail. An incorrect pH is one of the most common errors in this experiment.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Step Details -->
+            <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 class="font-bold mb-2 text-blue-800">About the Process:</h4>
+                <p class="text-sm text-gray-700">
+                    <strong>1. Add Indicator:</strong> When you run a titration, the EBT indicator is added to the water sample, forming a complex with the Ca²⁺/Mg²⁺ ions, which turns the water **wine-red**.
+                </p>
+                <p class="text-sm text-gray-700 mt-2">
+                    <strong>2. Titration:</strong> The EDTA from the burette is added. EDTA binds to the Ca²⁺/Mg²⁺ ions more strongly than the indicator does.
+                </p>
+                <p class="text-sm text-gray-700 mt-2">
+                    <strong>3. Endpoint:</strong> Once all the Ca²⁺/Mg²⁺ ions have been "stolen" by the EDTA, the EBT indicator is left free, turning the solution to its "free" color, **sky-blue**. This is the endpoint.
+                </D>
+                <hr class="my-3 border-blue-200">
+                <h4 class="font-bold mb-1 text-blue-800">Calculation Formula:</h4>
+                <p class="font-mono text-center text-sm mt-1">Hardness (ppm) = (V₂ / V₁) × 1000</p>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // --- DOM Elements ---
+            const startStdBtn = document.getElementById('start-std-btn');
+            const startUnkBtn = document.getElementById('start-unk-btn');
+            const resetBtn = document.getElementById('reset-btn');
+
+            const phSlider = document.getElementById('ph-slider');
+            const phValue = document.getElementById('ph-value');
+            const phMessage = document.getElementById('ph-message');
+            
+            const edtaMolaritySlider = document.getElementById('edta-molarity-slider');
+            const edtaMolarityValue = document.getElementById('edta-molarity-value');
+            const edtaMolarityMessage = document.getElementById('edta-molarity-message');
+
+            const buretteLiquid = document.getElementById('burette-liquid');
+            const buretteTicksContainer = document.querySelector('.burette-ticks');
+            const buretteReadingEl = document.getElementById('burette-reading');
+            const labBenchContainer = document.getElementById('lab-bench-container');
+            const drip = document.getElementById('drip');
+            
+            const flaskLiquid = document.getElementById('flask-liquid');
+            const liquidSurface = document.getElementById('liquid-surface');
+            const flaskColorEl = document.getElementById('flask-color');
+            const titrationLabel = document.getElementById('current-titration-label');
+
+            const labelFlask = document.getElementById('label-flask');
+            const labelWater = document.getElementById('label-water');
+
+            const resultsMessage = document.getElementById('results-message');
+            const resultV1 = document.getElementById('result-v1');
+            const resultV2 = document.getElementById('result-v2');
+            const resultHardness = document.getElementById('result-hardness');
+            const resultClassification = document.getElementById('result-classification');
+
+            // --- State Variables ---
+            const MOLES_KNOWN = 0.00007; // 0.01 mol/L * 0.007 L
+            const MOLES_UNKNOWN = 0.00001; // 0.01 mol/L * 0.001 L
+
+            const COLOR_WATER = '#cce7ff'; // Light blue for water
+            const COLOR_WINE_RED = '#8B0000';
+            const COLOR_SKY_BLUE = '#87CEEB';
+            const COLOR_TRANSITION = '#6A5ACD';
+            const COLOR_PRECIPITATE = '#A9A9A9';
+
+            let state = 'idle';
+            let trueEndpoint_mL = 0;
+            let currentVolume_mL = 0;
+            let animationInterval = null;
+            
+            let v1_result = 0;
+            let v2_result = 0;
+            
+            /**
+             * Resets the entire simulation to its initial state.
+             */
+            function initialize() {
+                if (animationInterval) {
+                    clearInterval(animationInterval);
+                    animationInterval = null;
+                }
+
+                state = 'idle';
+                currentVolume_mL = 0;
+                trueEndpoint_mL = 0;
+                v1_result = 0;
+                v2_result = 0;
+
+                updateBuretteVisual();
+                flaskLiquid.setAttribute('fill', COLOR_WATER); // Start with water color
+                liquidSurface.style.visibility = 'visible'; // Show surface line
+                flaskColorEl.textContent = 'Water Sample';
+                flaskColorEl.style.color = '#3b82f6'; // Blue text
+                titrationLabel.textContent = 'Waiting to start...';
+                labBenchContainer.classList.remove('titrating');
+                drip.classList.remove('dripping-fast', 'dripping-slow');
+
+                labelWater.style.display = 'block'; // Show water label
+                labelFlask.style.display = 'none'; // Hide flask label
+
+                phSlider.value = 10;
+                phValue.textContent = '10.0';
+                
+                edtaMolaritySlider.value = 0.010;
+                edtaMolarityValue.textContent = '0.010';
+                edtaMolarityMessage.textContent = 'Standard concentration.';
+                edtaMolarityMessage.style.color = 'green';
+
+                resultsMessage.classList.add('hidden');
+                resultV1.textContent = '---';
+                resultV2.textContent = '---';
+                resultHardness.textContent = '---';
+                resultClassification.textContent = '---';
+                resultClassification.style.color = '#1f2937';
+                
+                updateButtonStates(false);
+            }
+
+            /**
+             * Generates the "tick marks" on the burette
+             */
+            function generateBuretteTicks() {
+                buretteTicksContainer.innerHTML = '';
+                for (let i = 0; i <= 50; i++) { 
+                    const topPercent = (i / 50) * 100;
+                    
+                    const tick = document.createElement('div');
+                    tick.className = 'tick';
+                    tick.style.top = `${topPercent}%`;
+                    
+                    if (i % 5 === 0) {
+                        tick.style.width = '12px';
+                        const label = document.createElement('span');
+                        label.className = 'tick-label';
+                        label.style.top = `${topPercent}%`;
+                        label.textContent = i;
+                        buretteTicksContainer.appendChild(label);
+                    } else if (i % 1 === 0) {
+                         tick.style.width = '8px';
+                    }
+                    buretteTicksContainer.appendChild(tick);
+                }
+            }
+
+            /**
+             * Starts a new titration, either 'std' (known) or 'unk' (unknown).
+             */
+            function startTitration(type) {
+                
+                currentVolume_mL = 0;
+                updateBuretteVisual();
+                resultsMessage.classList.add('hidden');
+                labelWater.style.display = 'none';
+                labelFlask.style.display = 'block';
+                
+                const currentMolarity = parseFloat(edtaMolaritySlider.value);
+                if (currentMolarity === 0) {
+                    showError("Molarity cannot be zero.");
+                    return;
+                }
+
+                const ph = parseFloat(phSlider.value);
+                
+                let baseMoles;
+                let endpointType;
+
+                if (type === 'std') {
+                    state = 'titrating_std';
+                    titrationLabel.textContent = 'Titration 1: Known Sample (Running...)';
+                    baseMoles = MOLES_KNOWN;
+                    endpointType = 'std';
+                } 
+                else if (type === 'unk') {
+                    state = 'titrating_unk';
+                    titrationLabel.textContent = 'Titration 2: Unknown (Running...)';
+                    baseMoles = MOLES_UNKNOWN;
+                    endpointType = 'unk';
+                }
+
+                let baseEndpoint_mL = (baseMoles / currentMolarity) * 1000;
+
+                // pH Logic Check
+                if (ph > 11.5) {
+                    showError('pH is too high! Metal hydroxides precipitated. No reaction.');
+                    flaskLiquid.setAttribute('fill', COLOR_PRECIPITATE);
+                    liquidSurface.style.visibility = 'visible';
+                    flaskColorEl.textContent = 'Precipitated';
+                    flaskColorEl.style.color = COLOR_PRECIPITATE;
+                    titrationLabel.textContent = 'Titration Failed (pH too high)';
+                    return; 
+                }
+
+                if (ph < 8) {
+                    showError('pH is too low! Indicator color is incorrect (stays red).');
+                    flaskLiquid.setAttribute('fill', COLOR_WINE_RED); // Stays wine-red
+                    liquidSurface.style.visibility = 'visible';
+                    flaskColorEl.textContent = 'Wine-Red';
+                    flaskColorEl.style.color = COLOR_WINE_RED;
+                    titrationLabel.textContent = 'Titration Failed (pH too low)';
+                    
+                    // Add delay to show color change, then start failed run
+                    setTimeout(() => {
+                        calculateDripDistance();
+                        labBenchContainer.classList.add('titrating');
+                        runFailedTitration(endpointType);
+                    }, 500);
+                    return;
+                }
+
+                // If pH is valid, calculate final endpoint
+                trueEndpoint_mL = baseEndpoint_mL;
+                
+                if (ph >= 8.0 && ph < 9.5) {
+                    trueEndpoint_mL = baseEndpoint_mL * 0.85; // Apply 15% error
+                    showSuccess('pH is low. Endpoint may be inaccurate.');
+                } else {
+                    showSuccess('Running titration...');
+                }
+                
+                // Check for burette overflow
+                if (trueEndpoint_mL > 50) {
+                    showError(`Endpoint (${trueEndpoint_mL.toFixed(1)}mL) exceeds 50mL burette. Use a higher Molarity.`);
+                    titrationLabel.textContent = 'Titration Failed (Overflow)';
+                    flaskLiquid.setAttribute('fill', COLOR_WINE_RED); // Still show color change
+                    flaskColorEl.textContent = 'Wine-Red';
+                    flaskColorEl.style.color = COLOR_WINE_RED;
+
+                    // Add delay, then start failed run
+                    setTimeout(() => {
+                        calculateDripDistance();
+                        labBenchContainer.classList.add('titrating');
+                        runFailedTitration(endpointType);
+                    }, 500);
+                    return;
+                }
+
+                // Set visuals and run animation
+                flaskLiquid.setAttribute('fill', COLOR_WINE_RED);
+                liquidSurface.style.visibility = 'visible';
+                flaskColorEl.textContent = 'Wine-Red';
+                flaskColorEl.style.color = COLOR_WINE_RED;
+                
+                // Add delay to show color change, then start run
+                setTimeout(() => {
+                    calculateDripDistance();
+                    labBenchContainer.classList.add('titrating');
+                    runAutoTitration();
+                }, 500);
+            }
+
+            /**
+             * Calculates the distance from the drip start to the liquid surface
+             */
+            function calculateDripDistance() {
+                try {
+                    const dripStartRect = drip.getBoundingClientRect();
+                    const surfaceRect = liquidSurface.getBoundingClientRect();
+                    
+                    const distance = surfaceRect.top - dripStartRect.top; 
+                    
+                    if (distance > 10) {
+                        document.documentElement.style.setProperty('--drip-distance', `${distance}px`);
+                    } else {
+                        document.documentElement.style.setProperty('--drip-distance', '280px');
+                    }
+                } catch (e) {
+                    console.error("Error calculating drip distance:", e);
+                    document.documentElement.style.setProperty('--drip-distance', '280px');
+                }
+            }
+
+            /**
+             * Runs a failed titration (e.g., for low pH or overflow)
+             */
+            function runFailedTitration(type) {
+                updateButtonStates(true);
+                if (animationInterval) clearInterval(animationInterval);
+                
+                const animationTickMs = 50;
+                animationInterval = setInterval(() => {
+                    let volumeIncrement = 0.2;
+                    drip.classList.add('dripping-fast');
+                    
+                    if (currentVolume_mL + volumeIncrement >= 50) {
+                        currentVolume_mL = 50;
+                        updateBuretteVisual();
+                        clearInterval(animationInterval);
+                        animationInterval = null;
+                        
+                        labBenchContainer.classList.remove('titrating');
+                        drip.classList.remove('dripping-fast');
+                        
+                        if (type === 'std') {
+                            state = 'done_std';
+                            resultV1.textContent = 'N/A (Failed)';
+                        }
+                        if (type === 'unk') {
+                            state = 'done_unk';
+                            resultV2.textContent = 'N/A (Failed)';
+                        }
+                        updateButtonStates(false);
+                        
+                    } else {
+                        currentVolume_mL += volumeIncrement;
+                        currentVolume_mL = parseFloat(currentVolume_mL.toFixed(2));
+                        updateBuretteVisual();
+                    }
+                }, animationTickMs);
+            }
+            
+            /**
+             * Runs the automatic titration animation using setInterval.
+             */
+            function runAutoTitration() {
+                updateButtonStates(true);
+
+                if (animationInterval) {
+                    clearInterval(animationInterval);
+                }
+                
+                const animationTickMs = 50; 
+
+                animationInterval = setInterval(() => {
+                    try {
+                        if (!state.startsWith('titrating_')) {
+                            clearInterval(animationInterval);
+                            animationInterval = null;
+                            updateButtonStates(false);
+                            return;
+                        }
+                        let volumeIncrement;
+                        
+                        // Animation Speed Logic
+                        if (currentVolume_mL < trueEndpoint_mL - 2.0) {
+                            volumeIncrement = 0.1;
+                            drip.classList.add('dripping-fast');
+                            drip.classList.remove('dripping-slow');
+                        } else if (currentVolume_mL < trueEndpoint_mL - 0.5) {
+                            volumeIncrement = 0.05;
+                            drip.classList.add('dripping-fast');
+                            drip.classList.remove('dripping-slow');
+                        } else {
+                            volumeIncrement = 0.01;
+                            drip.classList.remove('dripping-fast');
+                            drip.classList.add('dripping-slow');
+                        }
+
+                        // Endpoint Check
+                        if (currentVolume_mL + volumeIncrement >= trueEndpoint_mL) {
+                            currentVolume_mL = trueEndpoint_mL;
+                            updateBuretteVisual();
+                            checkColorChange();
+                            clearInterval(animationInterval);
+                            animationInterval = null;
+                            endTitration();
+                        } else {
+                            currentVolume_mL += volumeIncrement;
+                            currentVolume_mL = parseFloat(currentVolume_mL.toFixed(2));
+                            updateBuretteVisual();
+                            checkColorChange();
+                        }
+                    } catch (e) {
+                        console.error("Error in titration animation loop:", e);
+                        clearInterval(animationInterval);
+                        animationInterval = null;
+                        showError("A simulation error occurred. Please reset.");
+                        initialize();
+                    }
+                }, animationTickMs);
+            }
+
+            /**
+             * Updates the burette liquid level and text reading.
+             */
+            function updateBuretteVisual() {
+                const heightPercent = 100 - (currentVolume_mL / 50) * 100;
+                buretteLiquid.style.height = `${heightPercent}%`;
+                buretteReadingEl.textContent = `${currentVolume_mL.toFixed(2)} mL`;
+            }
+            
+            /**
+             * Checks the current volume and updates the flask color.
+             */
+            function checkColorChange() {
+                if (currentVolume_mL >= trueEndpoint_mL) {
+                    flaskLiquid.setAttribute('fill', COLOR_SKY_BLUE);
+                    flaskColorEl.textContent = 'Sky-Blue';
+                    flaskColorEl.style.color = COLOR_SKY_BLUE;
+                } 
+                else if (currentVolume_mL >= trueEndpoint_mL - 0.2) { 
+                    flaskLiquid.setAttribute('fill', COLOR_TRANSITION);
+                    flaskColorEl.textContent = 'Purplish';
+                    flaskColorEl.style.color = COLOR_TRANSITION;
+                }
+            }
+
+
+            /**
+             * Called when a titration animation finishes.
+             */
+            function endTitration() {
+                const finalVolume = currentVolume_mL;
+                
+                labBenchContainer.classList.remove('titrating');
+                drip.classList.remove('dripping-fast', 'dripping-slow');
+
+                if (state === 'titrating_std') {
+                    v1_result = finalVolume;
+                    resultV1.textContent = `${v1_result.toFixed(2)} mL`;
+                    state = 'done_std';
+                    showSuccess('Known Sample titration complete! Proceed to Unknown.');
+                    titrationLabel.textContent = 'Titration 1: Complete';
+                } 
+                else if (state === 'titrating_unk') {
+                    v2_result = finalVolume;
+                    resultV2.textContent = `${v2_result.toFixed(2)} mL`;
+                    state = 'done_unk';
+                    titrationLabel.textContent = 'Titration 2: Complete';
+                    calculateFinalHardness();
+                }
+                updateButtonStates(false);
+            }
+
+            /**
+             * Calculates and displays the final hardness value.
+             */
+            function calculateFinalHardness() {
+                resultClassification.textContent = '---';
+                resultClassification.style.color = '#1f2937';
+
+                if (v1_result > 0 && v2_result > 0) {
+                    const hardness = (v2_result / v1_result) * 1000;
+                    resultHardness.textContent = `${hardness.toFixed(1)} ppm`;
+                    showSuccess('All titrations complete! Final hardness calculated.');
+                    titrationLabel.textContent = 'Calculation Complete';
+
+                    // Classification Logic
+                    let classification = '---';
+                    let classificationColor = '#1f2937';
+
+                    if (hardness <= 60) {
+                        classification = 'Soft';
+                        classificationColor = '#059669'; // text-green-700
+                    } else if (hardness <= 120) {
+                        classification = 'Moderately Hard';
+                        classificationColor = '#D97706'; // text-yellow-600
+                    } else if (hardness <= 180) {
+                        classification = 'Hard';
+                        classificationColor = '#EA580C'; // text-orange-600
+                    } else {
+                        classification = 'Very Hard';
+                        classificationColor = '#DC2626'; // text-red-600
+                    }
+                    resultClassification.textContent = classification;
+                    resultClassification.style.color = classificationColor;
+
+                } else {
+                    resultHardness.textContent = '---'; 
+                    resultClassification.textContent = '---';
+                    showError('Calculation failed. One or more titrations were invalid.');
+                }
+            }
+
+            /**
+             * Enables/disables buttons based on the current simulation state.
+             */
+            function updateButtonStates(isTitrating) {
+                if (isTitrating) {
+                    startStdBtn.disabled = true;
+                    startUnkBtn.disabled = true;
+                    resetBtn.disabled = true;
+                    phSlider.disabled = true;
+                    edtaMolaritySlider.disabled = true;
+                } else {
+                    resetBtn.disabled = false;
+                    startStdBtn.disabled = state !== 'idle';
+                    startUnkBtn.disabled = state !== 'done_std';
+                    phSlider.disabled = !(state === 'idle' || state === 'done_std');
+                    edtaMolaritySlider.disabled = !(state === 'idle' || state === 'done_std');
+                }
+            }
+
+            // --- UI Message Helpers ---
+            function showSuccess(message) {
+                resultsMessage.classList.remove('hidden', 'bg-red-100', 'text-red-700');
+                resultsMessage.classList.add('bg-green-100', 'text-green-700');
+                resultsMessage.textContent = message;
+            }
+
+            function showError(message) {
+                resultsMessage.classList.remove('hidden', 'bg-green-100', 'text-green-700');
+                resultsMessage.classList.add('bg-red-100', 'text-red-700');
+                resultsMessage.textContent = message;
+            }
+
+            // --- Initial Setup ---
+            generateBuretteTicks();
+            initialize();
+
+            // --- Event Listeners ---
+            startStdBtn.addEventListener('click', () => startTitration('std'));
+            startUnkBtn.addEventListener('click', () => startTitration('unk'));
+            resetBtn.addEventListener('click', initialize);
+
+            phSlider.addEventListener('input', () => {
+                const ph = parseFloat(phSlider.value);
+                phValue.textContent = ph.toFixed(1);
+                if (ph < 9.5 && ph >= 8.0) {
+                    phMessage.textContent = 'pH is low. Endpoint may be inaccurate.';
+                    phMessage.style.color = '#f97316'; // Orange
+                } else if (ph < 8.0) {
+                    phMessage.textContent = 'pH is too low! Titration will fail.';
+                    phMessage.style.color = '#ef4444'; // Red
+                } else if (ph > 11.5) {
+                    phMessage.textContent = 'pH is too high! Metal may precipitate.';
+                    phMessage.style.color = '#ef4444'; // Red
+                } else {
+                    phMessage.textContent = 'pH is in the ideal range.';
+                    phMessage.style.color = '#22c55e'; // Green
+                }
+            });
+
+            edtaMolaritySlider.addEventListener('input', () => {
+                const molarity = parseFloat(edtaMolaritySlider.value);
+                edtaMolarityValue.textContent = molarity.toFixed(3);
+                
+                if (molarity < 0.008 || molarity > 0.012) {
+                    edtaMolarityMessage.textContent = 'Concentration is non-standard.';
+                    edtaMolarityMessage.style.color = '#f97316'; // Orange
+                } else if (molarity === 0.010) {
+                    edtaMolarityMessage.textContent = 'Standard concentration.';
+                    edtaMolarityMessage.style.color = '#22c55e'; // Green
+                } else {
+                    edtaMolarityMessage.textContent = 'Acceptable concentration range.';
+                    edtaMolarityMessage.style.color = '#84cc16'; // Lime
+                }
+            });
+
+        });
+    </script>
+
+</body>
+</html>
